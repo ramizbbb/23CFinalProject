@@ -1,0 +1,319 @@
+---
+title: "23C R Project 2019"
+author: "Michel Nehme, Ramiz A. Razzak"
+date: "May 11, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+data = read.csv("Final project data.csv"); head(data)
+#All points will be marked in capital letters. 
+
+#DATAFRAME
+#AT LEAST TWO CATEGORICAL COLUMNS
+#AT LEAST TWO NUMERIC COLUMNS
+#AT LEAST TWENTY ROWS. 
+#ADDITIONAL POINT: A DATA SET WITH LOTS OF COLUMNS, ALLOWING COMPARISON OF MANY DIFFERENT VARIABLES. 
+
+#It is important to note that for our data analysis, we predominantly use mean data at each percentile/school tier; i.e., since
+#there is no way to disaggregate Chetty's data over the hundreds of thousands of research subjects which he used, 
+#we took means at each income percentile for each schooling tier as our relevant data points. 
+
+
+#Selecting specifically for the intersection of the column of mean incomes of children, and the school tiers "Ivy Plus"
+# and "Other elite schools (public and private)": 
+ivy_elite <- subset(data,tier_name == "Ivy Plus" | tier_name == "Other elite schools (public and private)" ,
+                   select=c(tier_name, k_mean)); ivy_elite
+#ADDITIONAL POINT: A GRAPHICAL DISPLAY THAT IS DIFFERENT FROM TEXTBOOK/CLASS; NICELY LABELLED GRAPHICS USING GGPLOT
+
+
+# We will begin by getting an overview of the average income per educational category by producing aot. 
+# The data is split into 15 educational categories, so we will compute the mean income for each category and then barplot it with the category name
+# The unique function will give us each category name only once
+l <- unique(data$tier_name); l
+N <- length(l); N
+# Now we take our vector for kid incomes and isolate it for further use 
+kid_income <- data$k_mean; kid_income
+avgs <- numeric(N)
+# Now we iterate accross category names and compute the average income for each category, and insert that into a numeric vector to produce our barplot 
+for(i in 1: length(l)) {
+  category_i <- which(data$tier_name == l[i])
+  category_avg <- mean(kid_income[category_i],na.rm=TRUE)
+  avgs[i] <- category_avg
+}
+
+barplot(avgs,names.arg=l,xlab="Category",ylab="Average income",col="blue",
+        main="Average income per educational category",border="red")
+#A BARPLOT. 
+# Here we receive a visual display of level of school attainment against average income in dollars. From a superficial observation of the 
+#graph, we can see that there seems to be a relatively significant correlation between level of educational attaiment and level of child income,
+#particularly at the top end. Ivy-league graduates clearly earn the most on average. 
+
+N2 <- 100
+avgs2 <- numeric(N2)
+
+#Let us begin our statistical analysis by observing the mean income for a kid who attended an Ivy-League institution. 
+counts <- table(data$tier_name); counts
+ivy <- which(data$tier == 1); ivy
+#Selecting for average Ivy-League income at each parental wealth percentile: 
+ivy_income <- data$k_mean[ivy]; ivy_income
+ivy_mean <- mean(ivy_income);ivy_mean
+# This turns out to be $119528.7
+
+#Now we want the parental percentile for each ivy-leaguer to associate it to their income; that is, we want to see how the parental income percentile affects child income among ivy-leaguers
+ivy_parpercentile <- data$par_pctile[ivy]; ivy_parpercentile
+# There is one data point per percentile, as desired. Generating a data frame of ivy-league child income against parental wealth percentile:
+df = data.frame("Parental Percentile" = ivy_parpercentile, "Child income" = ivy_income); df
+
+#We have now isolated this data into a data frame for further evaluation at a later time. 
+#Visual purposes to assess average distribution of incomes over Ivy-League students. 
+
+#Here, we now produce a histogram in which we compare percentile of parental income to child income for Ivy-Leaguers.  
+#HISTOGRAM
+hist(ivy_income, 
+     main="Histogram for Ivy League Income", 
+     xlab="Income ($)", 
+     border="blue", 
+     col="green",
+     breaks =30,
+     freq = FALSE
+     )
+
+#ADDITIONAL POINT: USE OF LINEAR REGRESSION; APPROPRIATE USE OF COVARIANCE/CORRELATION (CORRELATION)
+PP <- df$Parental.Percentile
+CI <- df$Child.income
+#Using the function lm to generate a linear regression model between parental percentile and a child's income earnings as an Ivy-Leaguer: 
+lm(CI ~ PP)
+#Here, we plot Ivy-League income against parental income percentile.  
+plot(PP, CI, pch = ".", cex = 3, main="Ivy League Income based on parent income percentile", xlab="Parental Income Percentile",ylab="Child Income",col="blue")
+# let's now compute the correlation between parental income percentile and child income
+cor(PP,CI)
+#According to conventions, this correlation can be classified as moderate since it exceeds 0.5; therefore, there is a non-negligeable relationship between
+#child income and parental income percentile for Ivy-Leaguers.
+
+#We now want to plot our linear regression onto our scatter plot of Ivy-Leaguer incomes against their parents' wealth percentile. 
+lm <- lm(CI ~ PP, data = data); lm
+a = 96861.3
+b = 453.4
+abline(a,b, col = "red")
+#The divergence of discrete points away from our linear regression line is admittedly quite significant, as can be seen, which makes sense given our only 
+#'moderate-level' correlation statistic between parental income percentile and child income. 
+
+
+# We will now proceed to do a permutation test to statistically analyse whether there exists a statistically significant difference in incomes if you go to a ivy/elite vs. highly selective private
+#/public school, across parentile income percentiles. The intended impact of this analysis is to gauge variation of income
+#at top end schools, which presumably have similar academic standards - this may therefore give us an implicit insight 
+#into the signalling effects of school names, ceteris paribus. 
+
+#ADDITIONAL POINT: A CONVINCING DEMONSTRATION OF A RELATIONSHIP THAT MIGHT NOT HAVE BEEN STATISTICALLY SIGNIFICANT BUT TURNS OUT TO BE SO. 
+#ADDITIONAL POINT: AN EXAMPLE WHERE PERMUTATION TESTS OR OTHER COMPUTATIONAL TECHNIQUES CLEARLY WORK BETTER THAN CLASSICAL METHODS (SEE FOLLOWING ANALYSIS AND COMPARE)
+
+#Our initial hypothesis is that there ought not to be a statistically significant difference across these two categorisations:
+#after all, the educational difference between ivy league schools and other top private/public schools which are highly selective despite
+#potentially not being categorised as 'elite', like UC Berkeley, seems prima facie minimal, so let's see if our assumption is correct
+
+#Creating a subset of our data which isolates the categories in which we are interested, and naming it aptly
+ivy_hselec <- subset(data, tier_name == "Ivy Plus" | tier_name == "Other elite schools (public and private)" | 
+                  tier_name == "Highly selective public" | tier_name == "Highly selective private" ,select=c(tier, k_mean)); ivy_hselec
+#Setting up our permutation test: 
+idx <- which(ivy_hselec$tier == "1" | ivy_hselec$tier == "2"); length(idx)
+idx2 <- which(ivy_hselec$tier == "3", ivy_hselec$tier == "4" ); length(idx)
+eliteavg <- mean(ivy_hselec$k_mean[idx]); eliteavg
+hselective <- mean(ivy_hselec$k_mean[idx2]); hselective
+obs.diff <- eliteavg - hselective; obs.diff
+sample <- sample(ivy_hselec$tier); sample
+sample_elite <- sum(ivy_hselec$k_mean*(sample == "1" | sample == "2"))/sum(sample == "1" | sample == "2"); sample_elite
+sample_hselective <- sum(ivy_hselec$k_mean*(sample == "3" | sample == "4"))/sum(sample == "3" | sample == "4"); sample_hselective
+(sample == "1" | sample == "2")
+1*FALSE
+N <- 10000
+diffs1 <- numeric(N) 
+for ( i in 1:N){
+  sample <- sample(ivy_hselec$tier); sample
+  sample_elite <- sum(ivy_hselec$k_mean*(sample == "1" | sample == "2"))/sum(sample == "1" | sample == "2"); sample_elite
+  sample_hselective <- sum(ivy_hselec$k_mean*(sample == "3" | sample == "4"))/sum(sample == "3" | sample == "4"); sample_hselective
+  diffs1[i] <- sample_elite - sample_hselective; diffs1[i]
+}
+diffs1
+mean <- mean(diffs1); mean
+#Generating a histogram of differences between observed and expected values, which we expect to be normal by the central limit theorem:
+hist(diffs1, breaks = "FD",main="Differences between observed and expected values", xlab="Difference ($)",ylab="Frequency",col="blue")
+#Now, let us generate a p-value from our permutation test to discern whether or not the observed differences give us reason to 
+#reject our null hypothesis that there ought not to be a difference between income for elite/Ivy-League graduates and Highly Selective
+#graduates: 
+pvalue <- (sum(diffs1 >= obs.diff)+1)/(N+1); pvalue 
+# Our p-value is incredibly low, which means it is statistically significant, and gives us reason to reject our null hypothesis, 
+#which we did not expect to be the case!
+
+#Let us verify the normality of histogram of differences between observed and expected values by overlaying a normal curve (physcially verifying that central limit theorem applies here): 
+hist(diffs1, breaks = "FD", freq = FALSE, main="Differences between observed and expected values", xlab="Difference ($)",ylab="Frequency",col="blue")
+mu = mean(diffs1)
+sd = sd(diffs1)
+curve(dnorm(x, mu, sd), add = TRUE, col = "red")
+#PROBAILITY DENSITY GRAPH OVERLAID ONTO A HISTOGRAM. 
+# This overlaid normal curve proves a beautiful fit, as expected! 
+
+# This analysis has shown that, as described in point 9 of the bonus section, we have demonstrated a relationship that might not have been statistically
+# significant (the difference in incomes based on ivy vs. top selective private and public institutions) us in fact very significant, as demonstrated
+# by the very low p-value we received. 
+
+#COMPARISON OF ANALYSIS BY CLASSICAL METHODS (CHI-SQUARED) AND SIMULATION METHODS (PERMUTATION TEST)
+#Now, we will proceed to a similar analysis using a chi-square test, with our null hypothesis being that the income between ivy-leaguers and elite
+#college-goers is identical to that of selective private and public colleges. Based on our permutation test, we expect a p-value that will 
+#falsily this null hypothesis, and further value the point we've seemed to make.  
+
+#Here, we are conducting a Chi-squared test to determine whether or not there is a statistically significant difference in income for those who graduate from
+#ivy-league and elite schools and highly selective college-goers: 
+
+#Creating indexes so that we can construct our data frame: we could have used 'subset' function, but we decided to show how to 
+#construct a data frame from scratch using basic r functions, for the sake of analytical diversity!
+
+ivyi <- which(data$tier =="1"); ivyi
+elitei <- which(data$tier == "2"); elitei
+selecpub <- which(data$tier == "3"); selecpub
+selecpriv <- which(data$tier == "4"); selecpriv
+IVY <- data$k_mean[ivyi]
+ELITE <- data$k_mean[elitei]
+SELECPUB <-data$k_mean[selecpub] 
+SELECPRIV <- data$k_mean[selecpriv]
+df <- data.frame(IVY, ELITE, SELECPUB,SELECPRIV); df
+#A CONTINGENCY TABLE + ANALYSIS OF CONTINGENCY TABLE.  
+
+#Here, we generate our contingency table by isolating the relevant data from our initial dataframe, and using it to take the means
+#which subsequently form our contingency table: 
+IVY1 <- as.numeric(IVY)
+ELITE1 <- as.numeric(ELITE)
+SELECPUB1 <- as.numeric(SELECPUB)
+SELECPRIV1 <- as.numeric(SELECPRIV)
+mean_ivy_elite <- (IVY1 + ELITE1)/2; mean_ivy_elite
+mean_selecpub_selecpriv <- (SELECPUB1 + SELECPRIV1)/2; mean_selecpub_selecpriv
+#Now we have a data frame composed of the averages of ivy and elite at each percentile, and the averages of highly selective public and private at every data point.
+df1 <- data.frame(mean_ivy_elite, mean_selecpub_selecpriv); df1
+#For our contingency table, we take the transpose of this transpose: 
+t(df1)
+#Lovely! A contingency table, in which there are 101 columns, where the first column corresponds to the 0th percentile of parental income, 
+#the second to the 1st percentile, etc. 
+
+#Let us now take the chi-statistic, to discern whether or not income is dependent on the distinction between ivy-league/elite schools, and highly selective schools. 
+chisq.test(df1)
+#Our p-value is incredibly small, indicating that, despite our initial hypothesis, going to an ivy/elite school seems to be related
+#to a significantly larger income for graduating students on net across parental percentiles than for students who attended highly-selective public/private schools.
+#This was, for Ramiz and I, counterintuitive , in that we presumed that highly selective schools generated similar earning potential to ivy-league/elite schools. 
+#This will be extrapolated upon in our analysis! 
+
+
+
+
+#ADDITIONAL POINT: A CONVINCING DEMONSTRATION OF A RELATIONSHIP THAT MAY HAVE BEEN STATISTICALLY SIGNIFICANT BUT TURNS OUT NOT TO BE SO. 
+
+#Comparing nonselective four-year public with two-year for-profit; we would expect nonselective four-year public students to earn more money on average, given that they have a) done more 
+#years of schooling, and b) two-year for-profit schools are often predatory in their education practices and generally on net do not offer better education than public schools, if not often worse education, 
+#while leaving students in debt traps. There is much media on this! In this test, however, we are just going to see whether there is compelling evidence 
+#to suggest that the incomes are DIFFERENT for the two-types of students, because we do not want to be too presumptuous about our underlying conditions! Maybe the two-year students
+#actually earn more than the four-year ones...
+#For this reason, we are conducting a two-tail test:
+#Let us see whether there is actually a statistically significant interaction between the two: 
+comp <- subset(data, tier_name == "Nonselective four-year public" | tier_name == "Two-year for-profit", select=c(tier, k_mean)); comp
+#Clearing out data which returns a non-result, so that we can use our data for statistical analysis (this is an intelligent move!): 
+comp1 <- comp[complete.cases(comp),]; comp1
+comp1
+#Creating our indexes, where tier 7 corresponds to four-year public schools, and tier 11 to two-year for-profit institutions: 
+idx1 <- which(comp1$tier == "7"); length(idx1)
+idx2 <- which(comp1$tier == "11" ); length(idx2)
+four_pub <- mean(comp1$k_mean[idx1]); four_pub
+two_priv <- mean(comp1$k_mean[idx2]); two_priv
+obs.diff <- four_pub - two_priv; obs.diff
+sample <- sample(comp1$tier); sample
+sample_four_pub <- sum(comp1$k_mean*(sample == "7")/sum(sample == "7")); sample_four_pub
+sample_two_priv <- sum(comp1$k_mean*(sample == "11"))/sum(sample == "11"); sample_two_priv
+N <- 10000
+diffs2 <- numeric(N) 
+for ( i in 1:N){
+  sample <- sample(comp1$tier); sample
+  sample_four_pub <- sum(comp1$k_mean*(sample == "7"))/sum(sample == "7"); sample_four_pub
+  sample_two_priv <- sum(comp1$k_mean*(sample == "11"))/sum(sample == "11"); sample_two_priv
+  diffs2[i] <- sample_four_pub - sample_two_priv; diffs2[i]
+}
+diffs2
+mean <- mean(diffs2); mean
+hist(diffs2, breaks = "FD",main="Differences between observed and expected values", xlab="Difference ($)",ylab="Frequency",col="blue")
+abline(v = obs.diff, col = "red")
+#Two-tailed test, since we are testing for difference. 
+pvalue <- 2*(sum(diffs2 <= obs.diff)+1)/(N+1); pvalue 
+
+#A p-value above 0.1 indicates that our result is not statistically signifcant, where we might expect it to be, because we initially posited that it seems intuitive
+#that four years of public schooling should yield better educational results, and therefore better earning capacity, than just two years of for-profit education. By our
+#analysis, however, there is no statistically significant distinction between the two-types of schooling across percentiles for earning capacity (with a two-tail test), 
+#which is somewhat surprising. 
+
+
+#ADDITIONAL POINTS REMAINING: A ONE-PAGE DOCUMENT THAT DISCUSSES ETHICAL ISSUES RELATED TO COLLECTION; 
+#A ONE PAGE DOCUMENT DISCUSSING ETHICAL ISSUES RELATING TO CONCLUSIONS; 
+#TEAM CONSISTS OF EXACTLY TWO MEMBERS. 
+#A VIDEO OF THE SHORT SCRIPT IS POSTED ON YOUTUBE. (INSERT LINK)
+
+#ADDITIONAL POINT (FOR THE BANTER): IMMEDIATELY DISBAND THE SEARCH COMMITTEE AND HIRE THEM, FOUR POINTS TO GRYFFINDOR!!!!
+
+
+```
+
+## Introduction
+ In the following markdown presentation, we will be providing a basic synopsis of the salient insights from our data analysis project. We hope you enjoy this brief presentation!
+ 
+## Our focus
+For our project, we analyzed data from Raj Chetty's Equality of Opportunity project which goes over different metrics regarding a child's economic situation based on their parent's income percentile. The data is formatted in a specific way: it provides incomes for children based on the type of school they went to and their parent's income percentile. There are 15 different educational categories, ranging from Ivy Plus to Never Attended college (before year 2013). Importantly, we focus on the interplay of level of educational attainment and future earning capacity across parental income percentiles. 
+
+## A starting point: average income accross educational categories
+For starters, we wanted to look at the effect of different types of school levels on average income, irrespective of parental income percentile. We figured this would a good starting point and allow us to delve into deeper analysis which eventually incorporates parental income percentile. 
+
+
+```{r categories, echo=FALSE}
+barplot(avgs,names.arg=l,xlab="Category",ylab="Average income",col="blue",
+        main="Average income per educational category",border="red")
+
+```
+
+As we can see from this barplot, incomes seem to be decreasing as you go further down the level of college education accross all parental income percentiles. This observation is what motivated our decision to delve deeper into the effect of one's educational category on their income. Nevertheless, it is salient to acknowledge that the most pronounced disparities occur near the top end of the university tiers; the difference between an ivy-league education (just under 120,000 dollars) and a highly-selective public college education (62,500 dollars) is much more significant than that between non-selective four-year private non-for-profit colleges and two-year for-proit colleges, for example, as starkly indicated by our bar plot. This perhaps indicates that at a certain point, level of tertiary education bears less upon future earning expectations - that is, education is not a requisite for a certain level of income. 
+
+
+## Delving deeper into the effect of educational category on child incomes
+In this section, we conducted two types of independence tests, and compared the results: the first was a permutation test, and the second a chi-squared test. 
+For our permutation test, we scrambled outcomes of ivy-league/elite incomes and highly-selective public/private incomes, then observed the difference between observed and expected values upon proceeding with this process of random sampling. 
+
+By contrast, for our chi-squared test, we configured a contingency table of ivy/elite incomes compared with highly selective public/private incomes, from which we used an R-function to compute a chi-statistic. 
+
+In both cases, we ended up with a very low p-value;  in this regard, both approaches concorded in their conclusions. 
+
+One of the key insights of our analysis was that ivy-league and elite college incomes were significantly higher than incomes from all other categories, as indicated by our direct comparison with incomes of students from highly selective private and public colleges. This conclusion is actually quite salient, because if we make the relatively safe assumption that the quality of education between America's top public and private colleges versus those that are Ivy/Ivy + (Elite) is almost functionally the same, we might be able to extrapolate that the large differential in income between students from Ivy+ Schools and top public and private colleges is primarily motivated by the signaling - that is to say, the esteem in which certain colleges are held due to historical reputation, institutional favour, etc.. There is a significant amount of economic literature which broaches this issue; for instance, economist Bryan Caplan believes that the value of education in America today is vastly exaggerated, since much of the increases in wages witnessed by those with college degrees depend on the college they've attended as opposed to the raw human capital they've gained. In our project, we performed a permutation test to arrive at this conclusion (by invalidating our null hypothesis that there wouldn't be an income gap between Ivy + vs top public/private) and we supplemented this analysis by a classic chi-square test, receiving similarly low p-values in both circumstances and thus contravening our underlying hypothesis that there ought not functionally be a significant difference between the earning capacities of the two groups at this high level of college education. 
+
+
+```{r, echo=FALSE}
+hist(diffs1, breaks = "FD",main="Differences between observed and expected values", xlab="Difference ($)",ylab="Frequency",col="blue")
+
+```
+
+
+We furthered our statistical analysis by interogating the difference in incomes between students attending a four-year public with two-year for-profit colleges (across parental percentiles). We observe through a p-test that there is not a statistically significant discrepancy between their earnings, which is rather surprising prima facie. This seems to go against the idea that more years of education would lead to higher human capital accumulation which in turn would lead to higher income, and also contravenes much empirical academic analysis which compares mid-tier public and private schools and finds that private schools charge extortionately for essentially the same - if not worse - education. Our hypothesis for why this is the case again returns to signaling: similarly to how Ivy + students earn more money than their counterparts at equally challenging schools, because four-year public colleges and two-year for-profits convey a similar signal (they aren't particularly prestigious, but highlight that the student has done beyond a high school degree) they lead to similar earnings. The difference between degree types becomes more marginal at the lower level, so the signal is restricted to the achievement of teritary education, and little more in terms of income. If this hypothesis is correct, it strengthens the conclusions we've made in the paragraph above. 
+
+```{r, echo=FALSE}
+hist(diffs2, breaks = "FD",main="Differences between observed and expected values", xlab="Difference ($)",ylab="Frequency",col="blue")
+```
+
+
+## Second key analytical insight: relating parental income to child income
+
+Our second focus in this project is to see the effects of a parent's standing in the economic ladder on their child's income. 
+
+The following graph, with its corresponding linear regression line, plots this relationship. 
+
+```{r, echo=FALSE}
+plot(PP, CI, pch = ".", cex = 3, main="Ivy League Income based on parent income percentile", xlab="Parental Income Percentile",ylab="Child Income",col="blue")
+abline(a,b, col = "red")
+```
+
+The key take away here is that there is a non-negligible correlation between parental income percentile and child earnings at the ivy-league level, albeit a less-pronounced one that you might have expected. By producing a linear correlation between these two variables and computing the strength of the correlation, we found a line of best fit and we computed the strength of the correlation, which turned out to be a little above 0.5. In most statistics textbooks, this is categorized as a moderate correlation. The take away here is with regards to economic mobility: the influence of parental income percentile on child income is present, but not extremely strong when they have attained an ivy-league education. This again is an important question in both economic literature and in politics, and our analysis seems to indicate that both those who believe that success is entirely related to personal effort and those who believe that the wealthy inevitably end up with wealthy children are overstating their case. Importantly, this emphasises that hereditary wealth becomes less of a factor in future earnings at the point at which you attain such an esteemed level of education, and suggests that Ivy-League degrees are therefore perhaps a conduit of comparative economic equality across people who manage to access them. There is, of course, the question of who is able to access them in the first place, but that exceeds the scope of our project.
+
